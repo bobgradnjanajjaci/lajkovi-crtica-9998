@@ -271,12 +271,14 @@ def send_like_order(full_link: str, quantity: int):
     quantity  -> broj lajkova
     """
     payload = {
-        "key": API_KEY,
-        "action": "add",
-        "service": SERVICE_ID,
-        "link": full_link,
-        "quantity": quantity,
-    }
+    "key": API_KEY,
+    "action": "add",
+    "service": 9998,
+    "link": comment_link,     # DIRECT COMMENT LINK
+    "quantity": likes,
+    "username": comment_username  # 👈 OBAVEZNO
+}
+
 
     try:
         r = requests.post(PANEL_URL, data=payload, timeout=20)
@@ -350,5 +352,6 @@ def index():
 
 if __name__ == "__main__":
     app.run(debug=True)
+
 
 
