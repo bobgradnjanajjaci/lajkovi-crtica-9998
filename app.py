@@ -310,10 +310,27 @@ def index():
         for raw in lines:
             # Očekujemo: link username quantity
             parts = raw.split()
-            if len(parts) < 3:
-                sent_fail += 1
-                log_lines.append(f"[SKIP] Pogrešan format (treba: LINK USERNAME QUANTITY): {raw}")
-                continue
+if len(parts) < 2:
+    sent_fail += 1
+    log_lines.append(
+        "[SKIP] Pogrešan format (treba: COMMENT_LINK QUANTITY): " + raw
+    )
+    continue
+
+comment_link = parts[0]
+qty_str = parts[1]
+
+try:
+    quantity = int(qty_str)
+    if quantity <= 0:
+        raise ValueError
+except Exception:
+    sent_fail += 1
+    log_lines.append(
+        "[SKIP] Nevažeća količina lajkova: " + raw
+    )
+    continue
+
 
             link = parts[0]
             username = parts[1]
@@ -352,6 +369,7 @@ def index():
 
 if __name__ == "__main__":
     app.run(debug=True)
+
 
 
 
