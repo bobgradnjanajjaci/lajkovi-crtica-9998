@@ -5,7 +5,7 @@ app = Flask(__name__)
 
 # 🔧 KONFIGURACIJA – JAP PANEL
 PANEL_URL = "https://justanotherpanel.com/api/v2"
-API_KEY = "22e5e4c340164704427fcfa0e0199710"
+API_KEY = "c849788f60dd591e636c5d079b0a8d62"
 SERVICE_ID = 9407  # TikTok Comment Likes na JAP-u
 
 HTML_TEMPLATE = """
@@ -350,3 +350,4 @@ def index():
 
 if __name__ == "__main__":
     app.run(debug=True)
+
