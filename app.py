@@ -1,6 +1,7 @@
 from flask import Flask, request, render_template_string
 import requests
 import time
+import re
 
 # ================= CONFIG =================
 
@@ -24,7 +25,7 @@ HTML = """
     body { background:#0f172a; color:#e5e7eb; font-family:system-ui; padding:40px }
     textarea { width:100%; height:220px; background:#020617; color:#e5e7eb; padding:12px }
     button { margin-top:12px; padding:10px 18px; font-weight:600 }
-    pre { background:#020617; padding:12px; margin-top:16px }
+    pre { background:#020617; padding:12px; margin-top:16px; white-space:pre-wrap }
   </style>
 </head>
 <body>
@@ -44,24 +45,42 @@ HTML = """
 </html>
 """
 
-# ================= CORE =================
+# ================= HELPERS =================
+
+def extract_username_from_link(link: str):
+    """
+    Izvlači @username iz TikTok comment linka
+    """
+    m = re.search(r"tiktok\\.com/@([^/]+)/", link)
+    return m.group(1) if m else None
+
 
 def send_order(comment_link: str, quantity: int):
+    """
+    Šalje order na JAP 9998 sa:
+    - direct comment link
+    - quantity
+    - username (OBAVEZNO, ide u Additional data)
+    """
+    username = extract_username_from_link(comment_link)
+
+    if not username:
+        return {"error": "Username nije pronađen u linku"}
+
     payload = {
         "key": API_KEY,
         "action": "add",
         "service": SERVICE_ID,
         "link": comment_link,
-        "quantity": quantity
+        "quantity": quantity,
+        "username": username  # 👈 KLJUČNO za JAP 9998
     }
 
-    r = requests.post(API_URL, data=payload, timeout=20)
-
     try:
+        r = requests.post(API_URL, data=payload, timeout=20)
         return r.json()
-    except Exception:
-        return {"error": r.text}
-
+    except Exception as e:
+        return {"error": str(e)}
 
 # ================= ROUTE =================
 
@@ -76,7 +95,7 @@ def index():
         for line in lines:
             parts = line.split()
 
-            # ✅ NOVI FORMAT: COMMENT_LINK QUANTITY
+            # ✅ FORMAT: COMMENT_LINK QUANTITY
             if len(parts) != 2:
                 log.append(f"[SKIP] Pogrešan format: {line}")
                 continue
@@ -92,8 +111,12 @@ def index():
                 log.append(f"[SKIP] Nevažeća količina: {line}")
                 continue
 
-            log.append(f"[SEND] {comment_link} x{quantity}")
+            username = extract_username_from_link(comment_link)
+            if not username:
+                log.append(f"[SKIP] Username nije pronađen u linku: {comment_link}")
+                continue
 
+            log.append(f"[SEND] @{username} | {quantity} likes")
             resp = send_order(comment_link, quantity)
             log.append(str(resp))
 
@@ -101,9 +124,7 @@ def index():
 
     return render_template_string(HTML, log="\n".join(log))
 
-
 # ================= ENTRY =================
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8080)
-
