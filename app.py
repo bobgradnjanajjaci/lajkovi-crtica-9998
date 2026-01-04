@@ -33,7 +33,7 @@ HTML = """
   <p>Format: <b>COMMENT_LINK QUANTITY</b></p>
 
   <form method="post">
-    <textarea name="orders" placeholder="https://www.tiktok.com/@user/video/...?...cid=XXX 500"></textarea>
+    <textarea name="orders" placeholder="www.tiktok.com/@user/video/...?...cid=XXX 500"></textarea>
     <br>
     <button type="submit">Send</button>
   </form>
@@ -47,11 +47,38 @@ HTML = """
 
 # ================= HELPERS =================
 
+def normalize_tiktok_link(link: str) -> str:
+    """
+    Normalizuje TikTok link da uvijek ima https://
+    i da regex radi pouzdano (kao kod auto-komentara).
+    """
+    link = (link or "").strip()
+    if not link:
+        return link
+
+    if link.startswith("//"):
+        link = "https:" + link
+    elif link.startswith("www."):
+        link = "https://" + link
+    elif link.startswith("tiktok.com/"):
+        link = "https://" + link
+    elif not link.startswith("http"):
+        link = "https://" + link
+
+    return link
+
+
 def extract_username_from_link(link: str):
     """
-    Izvlači @username iz TikTok comment linka
+    Izvlači @username iz bilo kog validnog TikTok comment linka:
+    - https://www.tiktok.com/@user/...
+    - www.tiktok.com/@user/...
+    - tiktok.com/@user/...
     """
-    m = re.search(r"tiktok\\.com/@([^/]+)/", link)
+    link = normalize_tiktok_link(link)
+
+    # najrobustniji pattern (isti princip kao auto komentari)
+    m = re.search(r"/@([^/]+)/", link)
     return m.group(1) if m else None
 
 
@@ -62,6 +89,7 @@ def send_order(comment_link: str, quantity: int):
     - quantity
     - username (OBAVEZNO, ide u Additional data)
     """
+    comment_link = normalize_tiktok_link(comment_link)
     username = extract_username_from_link(comment_link)
 
     if not username:
@@ -95,9 +123,9 @@ def index():
         for line in lines:
             parts = line.split()
 
-            # ✅ FORMAT: COMMENT_LINK QUANTITY
+            # FORMAT: COMMENT_LINK QUANTITY
             if len(parts) != 2:
-                log.append(f"[SKIP] Pogrešan format: {line}")
+                log.append(f"[SKIP] Pogrešan format (treba: COMMENT_LINK QUANTITY): {line}")
                 continue
 
             comment_link = parts[0]
@@ -111,13 +139,15 @@ def index():
                 log.append(f"[SKIP] Nevažeća količina: {line}")
                 continue
 
-            username = extract_username_from_link(comment_link)
+            normalized_link = normalize_tiktok_link(comment_link)
+            username = extract_username_from_link(normalized_link)
+
             if not username:
                 log.append(f"[SKIP] Username nije pronađen u linku: {comment_link}")
                 continue
 
             log.append(f"[SEND] @{username} | {quantity} likes")
-            resp = send_order(comment_link, quantity)
+            resp = send_order(normalized_link, quantity)
             log.append(str(resp))
 
             time.sleep(REQUEST_DELAY)
