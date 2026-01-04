@@ -8,6 +8,7 @@ API_URL = "https://justanotherpanel.com/api/v2"
 API_KEY = "c849788f60dd591e636c5d079b0a8d62"
 SERVICE_ID = 9998
 
+REQUEST_DELAY = 2.5  # sekunde između ordera (OBAVEZNO)
 
 app = Flask(__name__)
 
@@ -105,3 +106,4 @@ def index():
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8080)
+
