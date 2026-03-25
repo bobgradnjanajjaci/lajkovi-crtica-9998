@@ -6,9 +6,9 @@ app = Flask(__name__)
 # ======================
 # JAP CONFIG
 # ======================
-PANEL_URL = "https://justanotherpanel.com/api/v2"
-API_KEY = "c849788f60dd591e636c5d079b0a8d62"
-SERVICE_ID = 9998  # TikTok Comment Likes (DIRECT COMMENT LINK)
+PANEL_URL = "https://smmcoder.com/api/v2"
+API_KEY = "e299815c2c2eef18a6632eebcaec1271"
+SERVICE_ID = 8330  # TikTok Comment Likes (DIRECT COMMENT LINK)
 
 # ======================
 # HTML UI
