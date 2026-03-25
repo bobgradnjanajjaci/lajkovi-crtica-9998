@@ -1,10 +1,10 @@
 from flask import Flask, request, render_template_string
-import requests
+from urllib.parse import urlparse
 
 app = Flask(__name__)
 
 # ======================
-# JAP CONFIG
+# JAP CONFIG (STRUCTURE ONLY)
 # ======================
 PANEL_URL = "https://smmcoder.com/api/v2"
 API_KEY = "e299815c2c2eef18a6632eebcaec1271"
@@ -18,23 +18,23 @@ HTML = """
 <html>
 <head>
   <meta charset="utf-8">
-  <title>TikTok Comment Likes – JAP 9998</title>
+  <title>Video Order Parser</title>
   <style>
     body { background:#0f172a; color:#e5e7eb; font-family:Arial; padding:30px }
     textarea { width:100%; height:220px; background:#020617; color:#e5e7eb; padding:12px }
     button { margin-top:12px; padding:10px 18px; font-weight:bold }
-    pre { background:#020617; padding:12px; margin-top:15px }
+    pre { background:#020617; padding:12px; margin-top:15px; white-space:pre-wrap }
   </style>
 </head>
 <body>
 
-<h2>🚀 TikTok Comment Likes (Service 9998)</h2>
+<h2>🚀 TikTok Input Parser (VIDEO + USERNAME + QTY)</h2>
 
 <form method="post">
-<textarea name="orders" placeholder="COMMENT_LINK QUANTITY
-https://www.tiktok.com/@user/video/123?cid=XXXX 400"></textarea>
+<textarea name="orders" placeholder="VIDEO_LINK USERNAME QUANTITY
+https://www.tiktok.com/@user/video/123456 username123 400"></textarea>
 <br>
-<button type="submit">SEND</button>
+<button type="submit">PARSE</button>
 </form>
 
 {% if log %}
@@ -46,25 +46,14 @@ https://www.tiktok.com/@user/video/123?cid=XXXX 400"></textarea>
 """
 
 # ======================
-# CORE SENDER
+# VALIDATION
 # ======================
-def send_order(comment_link: str, quantity: int):
-    payload = {
-        "key": API_KEY,
-        "action": "add",
-        "service": SERVICE_ID,
-        "link": comment_link,
-        "quantity": quantity
-    }
-
+def is_valid_url(value: str) -> bool:
     try:
-        r = requests.post(PANEL_URL, data=payload, timeout=20)
-        data = r.json()
-        if "order" in data:
-            return True, f"ORDER OK → {data['order']}"
-        return False, f"ERROR → {data}"
-    except Exception as e:
-        return False, f"EXCEPTION → {e}"
+        parsed = urlparse(value)
+        return parsed.scheme in ("http", "https") and bool(parsed.netloc)
+    except:
+        return False
 
 # ======================
 # ROUTE
@@ -79,26 +68,39 @@ def index():
 
         for line in lines:
             parts = line.split()
-            if len(parts) != 2:
-                log.append(f"[SKIP] Format mora biti: LINK QTY → {line}")
+
+            if len(parts) != 3:
+                log.append(f"[SKIP] Format: VIDEO_LINK USERNAME QUANTITY → {line}")
                 continue
 
-            link, qty = parts
+            video_link, username, qty_raw = parts
 
+            # URL check
+            if not is_valid_url(video_link):
+                log.append(f"[SKIP] Invalid URL → {video_link}")
+                continue
+
+            # Username check
+            if not username.strip():
+                log.append(f"[SKIP] Invalid username → {line}")
+                continue
+
+            # Quantity check
             try:
-                qty = int(qty)
+                qty = int(qty_raw)
                 if qty < 1:
                     raise ValueError
             except:
-                log.append(f"[SKIP] Neispravna količina → {line}")
+                log.append(f"[SKIP] Invalid quantity → {qty_raw}")
                 continue
 
-            ok, msg = send_order(link, qty)
-            status = "OK" if ok else "FAIL"
-            log.append(f"[{status}] {link} x{qty} → {msg}")
+            # Final log output
+            log.append(
+                f"[READY] video={video_link} | user={username} | qty={qty}"
+            )
 
     return render_template_string(HTML, log="\n".join(log))
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000)
+    app.run(host="0.0.0.0", port=5000, debug=True)
