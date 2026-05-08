@@ -23,25 +23,25 @@ HTML = """
     <style>
         body { background:#0f172a; color:#e5e7eb; font-family:Arial, sans-serif; padding:30px; }
         .container { max-width: 900px; margin: auto; }
-        textarea { width:100%; height:320px; background:#020617; color:#e5e7eb; padding:15px; border:1px solid #475569; border-radius:8px; font-family:monospace; font-size:14px; }
-        button { margin-top:15px; padding:14px 28px; font-size:17px; font-weight:bold; background:#22c55e; color:#0f172a; border:none; border-radius:6px; cursor:pointer; width: 100%; }
+        textarea { width:100%; height:320px; background:#020617; color:#e5e7eb; padding:15px; border:1px solid #475569; border-radius:8px; font-family:monospace; font-size:14px; border: 1px solid #334155; }
+        button { margin-top:15px; padding:14px 28px; font-size:17px; font-weight:bold; background:#22c55e; color:#0f172a; border:none; border-radius:6px; cursor:pointer; width: 100%; transition: 0.3s; }
         button:hover { background:#16a34a; }
-        pre { background:#020617; padding:16px; margin-top:20px; border-radius:8px; white-space:pre-wrap; line-height:1.6; border: 1px solid #1e293b; }
-        .success { color:#86efac; }
-        .error { color:#fda4af; }
-        .info { color:#93c5fd; }
-        h2 { color: #f8fafc; }
-        p { color: #94a3b8; margin-bottom: 10px; }
+        pre { background:#020617; padding:16px; margin-top:20px; border-radius:8px; white-space:pre-wrap; line-height:1.6; border: 1px solid #1e293b; font-size: 13px; }
+        .success { color:#4ade80; font-weight: bold; }
+        .error { color:#fb7185; font-weight: bold; }
+        .info { color:#60a5fa; font-weight: bold; }
+        h2 { color: #f8fafc; margin-bottom: 5px; }
+        p { color: #94a3b8; margin-bottom: 20px; }
     </style>
 </head>
 <body>
 <div class="container">
     <h2>🚀 TikTok Comment Likes Sender</h2>
-    <p>Format unosa: <strong>LINK_VIDEA USERNAME KOLIČINA</strong> (razmak između)</p>
+    <p>Redoslijed unosa: <strong>LINK_VIDEA USERNAME KOLIČINA</strong> (razmak između njih)</p>
     <form method="post">
-        <textarea name="orders" placeholder="https://www.tiktok.com/@user/video/123456789 profil_koji_je_ostavio_komentar 100"></textarea>
+        <textarea name="orders" placeholder="https://www.tiktok.com/@user/video/123456789 nails_vivian 100"></textarea>
         <br>
-        <button type="submit">POŠALJI NARUDŽBE</button>
+        <button type="submit">POŠALJI NA PANEL</button>
     </form>
 
     {% if log %}
@@ -64,23 +64,31 @@ def send_order(video_url: str, username: str, quantity: int):
         "key": API_KEY,
         "action": "add",
         "service": SERVICE_ID,
-        "link": video_url,           # Link na video
-        "quantity": quantity,        # Broj lajkova
-        "username": username         # Username osobe čiji komentar lajkamo
+        "link": video_url,
+        "quantity": quantity,
+        "username": username
     }
 
     try:
+        # Slanje zahtjeva prema SMM panelu
         r = requests.post(PANEL_URL, data=payload, timeout=20)
         response = r.json()
 
-        if response.get("status") == "success":
-            order_id = response.get("order", "N/A")
-            return f'<span class="success">[SUCCESS] Order #{order_id} | {quantity} lajkova za @{username}</span>'
+        # POPRAVAK: Provjeravamo postoji li 'order' ključ u odgovoru
+        if "order" in response:
+            order_id = response.get("order")
+            return f'<span class="success">[SUCCESS] Order #{order_id} | {quantity} lajkova poslano na @{username}</span>'
+        
+        # Ako API vrati grešku
+        elif "error" in response:
+            return f'<span class="error">[ERROR] {response["error"]} | Profil: @{username}</span>'
+        
+        # Bilo koji drugi neočekivani odgovor
         else:
-            error = response.get("error", str(response))
-            return f'<span class="error">[ERROR] {error} | Profil: @{username}</span>'
+            return f'<span class="error">[UNKNOWN] {str(response)} | @{username}</span>'
+
     except Exception as e:
-        return f'<span class="error">[EXCEPTION] {str(e)}</span>'
+        return f'<span class="error">[EXCEPTION] Problem s povezivanjem: {str(e)}</span>'
 
 @app.route("/", methods=["GET", "POST"])
 def index():
@@ -90,29 +98,30 @@ def index():
         raw = request.form.get("orders", "").strip()
 
         if not raw:
-            log_lines.append('<span class="error">[ERROR] Polje je prazno!</span>')
+            log_lines.append('<span class="error">[SISTEM] Polje je prazno!</span>')
         else:
             lines = [line.strip() for line in raw.splitlines() if line.strip()]
-            log_lines.append(f'<span class="info">[INFO] Obrađujem {len(lines)} linija...</span>\n')
+            log_lines.append(f'<span class="info">[INFO] Pokrećem obradu za {len(lines)} narudžbi...</span>\n')
 
             for i, line in enumerate(lines, 1):
-                # Splitamo liniju na 3 dijela: LINK, USERNAME, QTY
+                # Dijeljenje linije na dijelove (razmak je separator)
                 parts = line.split()
                 
                 if len(parts) < 3:
-                    log_lines.append(f'<span class="error">[SKIP] #{i} Nedostaju podaci (potrebno: Link, Username, Količina)</span>')
+                    log_lines.append(f'<span class="error">[SKIP] #{i} Krivi format linije (fali podatak)</span>')
                     continue
 
+                # Dodjela varijabli po tvom zahtjevu: LINK -> USERNAME -> QUANTITY
                 video_link = parts[0]
                 username = parts[1].strip().lstrip('@')
                 qty_raw = parts[2]
 
-                # Provjera linka
+                # Provjera je li URL ispravan
                 if not is_valid_url(video_link):
                     log_lines.append(f'<span class="error">[SKIP] #{i} Neispravan URL → {video_link}</span>')
                     continue
 
-                # Provjera količine
+                # Provjera je li količina broj
                 try:
                     qty = int(qty_raw)
                     if qty < 1: raise ValueError
@@ -120,11 +129,13 @@ def index():
                     log_lines.append(f'<span class="error">[SKIP] #{i} Neispravna količina → {qty_raw}</span>')
                     continue
 
-                # Slanje na API
+                # Pozivanje funkcije za slanje
                 result = send_order(video_link, username, qty)
                 log_lines.append(result)
 
+    # Spajamo logove u jedan string i šaljemo u HTML
     return render_template_string(HTML, log="\n".join(log_lines))
 
 if __name__ == "__main__":
+    print("✅ Skripta je pokrenuta na http://127.0.0.1:5000")
     app.run(host="0.0.0.0", port=5000, debug=True)
